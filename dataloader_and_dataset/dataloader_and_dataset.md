@@ -98,10 +98,10 @@ class RMBDataset(Dataset):
         return data_info
 ```
 Note that the function ``get_img_info`` traverses the data folder and collects all the images with their labels, and the return value ``data_info`` is a list that items inside can be accessed by index. You may also find that using ``tuple`` to store one data entry is a pretty good idea as items of tuple can be different types (images, integral and even list), and the return value can therefore be a list of tuples.
-With this function, we can then rewrite the ``__getitem__`` function fetching single data entry ``path_img, label = self.data_info[index]`` to access the images and labels. We also add ``transform`` here for data pre-processing, which will be detailed later. In addition, we can also rewrite the ``__len__`` function to return the length of our dataset, that is the total number of our data entries. Till here, we almost done the loading data part, however, we still need to process the data to make them fit our training propuse.
+With this function, we can then rewrite the ``__getitem__`` function fetching single data entry ``path_img, label = self.data_info[index]`` to access the images and labels. We also add ``transform`` here for data pre-processing, which will be detailed later. In addition, we can also rewrite the ``__len__`` function to return the length of our dataset, that is the total number of our data entries. Till here, we almost done the loading data part, however, we still need to process the data to make them fit our training purpose.
 ## Data preprocessing  
 You may notice before that we used a ``transform`` function in the ``RMBDataset`` and it is also the input of the ``__init__`` function. Generally, we precess our data through this function. Transform are commonly used image transformation methods that can be chained together using ``compose``, here is an example:
-```
+```python
 train_transform = transforms.Compose([
     transforms.Resize((32, 32)),
     transforms.RandomCrop(32, padding=4),
@@ -109,7 +109,27 @@ train_transform = transforms.Compose([
     transforms.Normalize(norm_mean, norm_std),
 ])
 ```
-Images will then be processed by a series of transformation listed in ``Compose()``. Commonly used transformation includes ``Resize()``, ``RandomCrop``, ``CenterCrop()``, ``ToTensor()``, ``Normalize()`` and ``Grayscale()``, more options and detailed usage can be found [here](https://pytorch.org/docs/stable/torchvision/transforms.html?highlight=transforms)
+Images will then be processed by a series of transformation listed in ``Compose()``. Commonly used transformation includes ``Resize()``, ``RandomCrop``, ``CenterCrop()``, ``ToTensor()``, ``Normalize()`` and ``Grayscale()``. Most of those preprocessing methods help improve the generalizing ability of the training model and try to reduce overfitting. More options and detailed usage can be found [here](https://pytorch.org/docs/stable/torchvision/transforms.html?highlight=transforms)
 After creating a series of transformation, we pass it to our defined dataset as input. ``train_data = RMBDataset(data_dir=train_dir, transform=train_transform)`` to make sure the training data be processed before training.
-## Allocate data in mini batches
-allocate with default functions, drop last, shuffle, load data in parallel.
+## Try the DataLoader
+Technically, with the ``Dataset``, we can traverse the input data by using a for-loop:
+```python
+for i in range(len(train_data))
+  samples = train_data[i]
+  # do something with the sample
+```
+However, this is definitely not a good practice, since by using a simple for-loop we would miss lots of fancy features provided by pytorch ``DataLoader``, including batching the data, shuffling data, loading the data with multi-process. Basically, the ``DataLoader`` is an iterator, it helps iterate the specific "data structure" that is our defined ``Dataset`` (just like when you design a data structure in c++, you may also want to design an iterator for fetching data with specific rules.)
+Compared with ``Dataset``, it is much easier to setup the ``DataLoader`` by
+```python
+train_loader = DataLoader(dataset=train_data, batch_size=BATCH_SIZE, shuffle=True, drop_last=True)
+```
+where you need to specify the ``Dataset`` that you created, batch size and the shuffle option. With ``shuffle=True``, data will be randomly spited into batches, and in each epoch, you may have different samples. If the number of data cannot be divided by batch size, and with ``drop_last=True`` it will drop additional data in the incomplete batch. If you don't want to drop the additional data, ``collate_fn()`` allows user to merge a list of samples to from a mini batch.
+With the dataloader, we can start our training by looping every batches:
+```python
+for i, data in enumerate(train_loader):
+  # forward
+  # compute loss
+  # backward()
+  ...
+```  
+This is a simple example of how to load data (images and labels). Note that, we assumes the data with the same type are stored in the same folder. A more complex example that allows user to load auxiliary data stored in .csv file can be found in [official tutorial](https://pytorch.org/tutorials/beginner/data_loading_tutorial.html). And related codes of this RMB classification can be found [here](https://github.com/HideUnderBush/pytorch_note/tree/master/dataloader_and_dataset/code) 
